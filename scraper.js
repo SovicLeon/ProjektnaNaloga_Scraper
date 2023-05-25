@@ -37,7 +37,7 @@ function scrape() {
         textFileContent += '\n';
       });
 
-      fs.writeFileSync('data.txt', textFileContent);
+      fs.writeFileSync('trafficCounter.txt', textFileContent);
 
       await browser.close();
     })();
