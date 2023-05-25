@@ -6,7 +6,6 @@ var trafficCounterController = require('../controllers/trafficCounterController.
 //router.get('/', trafficCounterController.list);
 
 //localhost:3002/trafficCounter/videm
-router.get('/:name', trafficCounterController.show);
 
 router.get('/coords', trafficCounterController.trafficCounter);
 

@@ -5,42 +5,40 @@ function scrape() {
   setInterval(() => {
     console.log("Starting scrape");
     (async () => {
-      const browser = await puppeteer.launch();
+      const browser = await puppeteer.launch({ headless: false });
       const page = await browser.newPage();
-    
-      const searchString = 'agg'; // Change this to the string you want to match
-    
-      page.on('response', async response => {
-        if (
-          response.url().toLowerCase().includes(searchString.toLowerCase())
-        ) {
-          const buffer = await response.buffer();
-          const utf8String = buffer.toString('utf8');
-    
-          const lines = utf8String.split('\n');
-    
-          const outputLines = [];
-          for (let i = 1; i < lines.length; i++) {
-            if (lines[i].includes("Hitrost")) {
-              outputLines.push(lines[i-1]);
-              outputLines.push(lines[i]);
-              //outputLines.push(lines[i].replace(/[^a-zA-Z0-9 ]/g, ''));
-              //https://www.promet.si/dc/agg
-              //https://www.promet.si/dc/dt.routing.multiple?loc=46.48493084600708,15.734422086328202%3B46.50722915674878,15.697859750599742
-            }
-          }
-    
-          const output = outputLines.join('\n');
-    
-          // Write buffer data to files
-          fs.writeFileSync('trafficCounter.txt', output);
-          
-          console.log('Traffic counter data downloaded.');
-        }
+
+      // Set user agent and enable JavaScript
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36');
+      await page.setJavaScriptEnabled(true);
+
+      await page.goto('http://portal.drsc.si/traffic/main_si.htm', { waitUntil: 'networkidle2' });
+
+      const data = await page.evaluate(() => {
+        const tables = Array.from(document.querySelectorAll('body #content table'));
+        return tables.map((table, tableIdx) => {
+          const rows = Array.from(table.querySelectorAll('tr')).filter(row => row.querySelector('a') !== null); // Only consider rows with a link
+          return rows.map((row, rowIdx) => {
+            const cells = Array.from(row.querySelectorAll('td, th')); // Process all cells
+            return cells.map((cell, cellIdx) => {
+              let cellText = cell.innerText.trim();
+              return { tableIdx, rowIdx, cellIdx, cellText };
+            });
+          });
+        });
       });
-    
-      await page.goto('https://www.promet.si/sl/stevci-prometa', { waitUntil: 'networkidle2' });
-    
+
+      let textFileContent = '';
+      data.forEach((tableData, i) => {
+        tableData.forEach(rowData => {
+          const rowText = rowData.map(cell => cell.cellText).join(';');
+          textFileContent += rowText + '\n';
+        });
+        textFileContent += '\n';
+      });
+
+      fs.writeFileSync('data.txt', textFileContent);
+
       await browser.close();
     })();
   }, 5 * 60 * 1000); // Run every 5 minutes (5 * 60 seconds * 1000 milliseconds)
